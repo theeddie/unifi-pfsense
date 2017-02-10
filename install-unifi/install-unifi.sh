@@ -7,7 +7,7 @@
 OS_ARCH=`getconf LONG_BIT`
 
 # The latest version of UniFi:
-UNIFI_SOFTWARE_URL="https://dl.ubnt.com/unifi/5.3.11/UniFi.unix.zip"
+UNIFI_SOFTWARE_URL="https://dl.ubnt.com/unifi/5.4.11/UniFi.unix.zip"
 
 # The rc script associated with this branch or fork:
 RC_SCRIPT_URL="https://raw.githubusercontent.com/gozoinks/unifi-pfsense/master/rc.d/unifi.sh"
@@ -41,7 +41,7 @@ if [ $(ps ax | grep -c "/usr/local/UniFi/lib/[a]ce.jar start") -ne 0 ]; then
   echo -n "Killing ace.jar process..."
   /bin/kill -15 `ps ax | grep "/usr/local/UniFi/lib/[a]ce.jar start" | awk '{ print $1 }'`
   echo " done."
-fi
+  fi
 
 # And then make sure mongodb doesn't have the db file open:
 if [ $(ps ax | grep -c "/usr/local/UniFi/data/[d]b") -ne 0 ]; then
@@ -86,7 +86,7 @@ env ASSUME_ALWAYS_YES=YES /usr/sbin/pkg add ${FREEBSD_PACKAGE_URL}python2-2_3.tx
 env ASSUME_ALWAYS_YES=YES /usr/sbin/pkg add ${FREEBSD_PACKAGE_URL}v8-3.18.5_2.txz
 env ASSUME_ALWAYS_YES=YES /usr/sbin/pkg add ${FREEBSD_PACKAGE_URL}mongodb-2.6.12.txz
 env ASSUME_ALWAYS_YES=YES /usr/sbin/pkg add ${FREEBSD_PACKAGE_URL}unzip-6.0_7.txz
-env ASSUME_ALWAYS_YES=YES /usr/sbin/pkg add ${FREEBSD_PACKAGE_URL}pcre-8.39_1.txz
+env ASSUME_ALWAYS_YES=YES /usr/sbin/pkg add ${FREEBSD_PACKAGE_URL}pcre-8.40.txz
 env ASSUME_ALWAYS_YES=YES /usr/sbin/pkg add ${FREEBSD_PACKAGE_URL}alsa-lib-1.1.2.txz
 env ASSUME_ALWAYS_YES=YES /usr/sbin/pkg add ${FREEBSD_PACKAGE_URL}freetype2-2.6.3.txz
 env ASSUME_ALWAYS_YES=YES /usr/sbin/pkg add ${FREEBSD_PACKAGE_URL}fontconfig-2.12.1,1.txz
@@ -117,13 +117,14 @@ env ASSUME_ALWAYS_YES=YES /usr/sbin/pkg add ${FREEBSD_PACKAGE_URL}renderproto-0.
 env ASSUME_ALWAYS_YES=YES /usr/sbin/pkg add ${FREEBSD_PACKAGE_URL}libXrender-0.9.10.txz
 env ASSUME_ALWAYS_YES=YES /usr/sbin/pkg add ${FREEBSD_PACKAGE_URL}javavmwrapper-2.5_2.txz
 env ASSUME_ALWAYS_YES=YES /usr/sbin/pkg add ${FREEBSD_PACKAGE_URL}giflib-5.1.4.txz
-env ASSUME_ALWAYS_YES=YES /usr/sbin/pkg add ${FREEBSD_PACKAGE_URL}openjdk8-8.112.16_3.txz
+env ASSUME_ALWAYS_YES=YES /usr/sbin/pkg add ${FREEBSD_PACKAGE_URL}openjdk8-8.121.13.txz
 env ASSUME_ALWAYS_YES=YES /usr/sbin/pkg add ${FREEBSD_PACKAGE_URL}snappyjava-1.0.4.1_2.txz
 echo " done."
 
 # Switch to a temp directory for the Unifi download:
 cd `mktemp -d -t unifi`
 
+# Download the controller from Ubiquiti (assuming acceptance of the EULA):
 # Download the controller from Ubiquiti (assuming acceptance of the EULA):
 echo -n "Downloading the UniFi controller software..."
 /usr/bin/fetch ${UNIFI_SOFTWARE_URL}
@@ -152,7 +153,19 @@ echo " done."
 
 # Fetch the rc script from github:
 echo -n "Installing rc script..."
-/usr/bin/fetch -o /usr/local/etc/rc.d/unifi.sh ${RC_SCRIPT_URL}
+/usr/bin/fetch -o /usr/local/etc/rc.d/unifi.sh ${RC_SC# Restore the backup:
+if [ ! -z "${BACKUPFILE}" ] && [ -f ${BACKUPFILE} ]; then
+  echo "Restoring UniFi data..."
+  mv /usr/local/UniFi/data /usr/local/UniFi/data-orig
+  /usr/bin/tar -vxzf ${BACKUPFILE}
+fi
+
+# Start it up:
+echo -n "Starting the unifi service..."
+/usr/sbin/service unifi.sh start
+echo " done."
+
+RIPT_URL}
 echo " done."
 
 # Fix permissions so it'll run
@@ -166,15 +179,3 @@ if [ ! -f /etc/rc.conf.local ] || [ $(grep -c unifi_enable /etc/rc.conf.local) -
   echo "unifi_enable=YES" >> /etc/rc.conf.local
   echo " done."
 fi
-
-# Restore the backup:
-if [ ! -z "${BACKUPFILE}" ] && [ -f ${BACKUPFILE} ]; then
-  echo "Restoring UniFi data..."
-  mv /usr/local/UniFi/data /usr/local/UniFi/data-orig
-  /usr/bin/tar -vxzf ${BACKUPFILE}
-fi
-
-# Start it up:
-echo -n "Starting the unifi service..."
-/usr/sbin/service unifi.sh start
-echo " done."
